@@ -519,17 +519,17 @@ __global__ void degree_kernel() {
             <h4>Phase 1: Work Partitioning</h4>
             <div class="code-block">
                 <pre>
-                    // Phase 1: Partitioning the dataset
-                    t.reset();
-                    initialize(points, eps, minPts);
-                    build_global_graph(parameters, point_index, cell_start_index, cell_end_index);
-                    std::vector assigned_cells = random_distribute(numTasks, taskid);
-                    size_t assigned_cell_count = assigned_cells.size();
-                    
-                    double partitioningTime = t.elapsed();
-                    if (taskid == MASTER) {
-                        printf("Step 1. Time taken for partitioning: %.6fms\n", partitioningTime);
-                    }
+// Phase 1: Partitioning the dataset
+t.reset();
+initialize(points, eps, minPts);
+build_global_graph(parameters, point_index, cell_start_index, cell_end_index);
+std::vector assigned_cells = random_distribute(numTasks, taskid);
+size_t assigned_cell_count = assigned_cells.size();
+
+double partitioningTime = t.elapsed();
+if (taskid == MASTER) {
+    printf("Step 1. Time taken for partitioning: %.6fms\n", partitioningTime);
+}
                     
     </pre>
             </div>
@@ -543,26 +543,26 @@ __global__ void degree_kernel() {
             <h4>Phase 2: Partial Graph Construction</h4>
             <div class="code-block">
                 <pre>
-                    // Phase 2: Construct a partial clustering graph
-                    std::vector point_ids;
-                    std::vector is_core_points;
-                    std::vector adjacency_list;
-                    std::vector partition_data;
-                    
-                    t.reset();
-                    buildLocalCellGraph(local_cell_index,
-                                        point_ids,
-                                        is_core_points,
-                                        adjacency_list,
-                                        partition_data);
-                    
-                    double graphConstructionTime = t.elapsed();
-                    if (taskid == MASTER) {
-                        printf("Step 2. Time for constructing partial cell graph: %.6fms\n", graphConstructionTime);
-                    }
-                    
-                    size_t point_count = point_ids.size();
-                    size_t adj_list_size = adjacency_list.size();
+// Phase 2: Construct a partial clustering graph
+std::vector point_ids;
+std::vector is_core_points;
+std::vector adjacency_list;
+std::vector partition_data;
+
+t.reset();
+buildLocalCellGraph(local_cell_index,
+                    point_ids,
+                    is_core_points,
+                    adjacency_list,
+                    partition_data);
+
+double graphConstructionTime = t.elapsed();
+if (taskid == MASTER) {
+    printf("Step 2. Time for constructing partial cell graph: %.6fms\n", graphConstructionTime);
+}
+
+size_t point_count = point_ids.size();
+size_t adj_list_size = adjacency_list.size();
                     
     </pre>
             </div>
@@ -576,44 +576,44 @@ __global__ void degree_kernel() {
             <h4>Phase 3: Graph Merging and Point Labeling</h4>
             <div class="code-block">
                 <pre>
-                    // Phase 3: Combine clustering graphs
-                    if (taskid != MASTER) {
-                        // Workers send their local graphs to the master node
-                        MPI_Send(&adjacency_list_size, 1, MPI_UNSIGNED_LONG, MASTER, 1, MPI_COMM_WORLD);
-                        MPI_Send(&adjacency_list[0], adjacency_list_size, MPI_UNSIGNED_LONG, MASTER, 2, MPI_COMM_WORLD);
-                        MPI_Send(&point_ids[0], point_count, MPI_UNSIGNED_LONG, MASTER, 3, MPI_COMM_WORLD);
-                        MPI_Send(&is_core_points[0], point_count, MPI_SHORT, MASTER, 4, MPI_COMM_WORLD);
-                    } else {
-                        // Master node gathers graphs from workers and performs merging
-                        for (int worker_id = 1; worker_id < numTasks; ++worker_id) {
-                            size_t received_adj_list_size;
-                            MPI_Recv(&received_adj_list_size, 1, MPI_UNSIGNED_LONG, worker_id, 1, MPI_COMM_WORLD, &status);
-                            
-                            std::vector received_adj_list(received_adj_list_size);
-                            MPI_Recv(&received_adj_list[0], received_adj_list_size, MPI_UNSIGNED_LONG, worker_id, 2, MPI_COMM_WORLD, &status);
-                            
-                            std::vector received_point_ids(point_count);
-                            MPI_Recv(&received_point_ids[0], point_count, MPI_UNSIGNED_LONG, worker_id, 3, MPI_COMM_WORLD, &status);
-                            
-                            std::vector received_is_core_points(point_count);
-                            MPI_Recv(&received_is_core_points[0], point_count, MPI_SHORT, worker_id, 4, MPI_COMM_WORLD, &status);
-                    
-                            // Combine the received graph with the master's graph
-                            mergeGraphs(partition_data, adjacency_list,
-                                        received_partition, received_adj_list);
-                    
-                            adjacency_list = merged_adjacency_list;
-                        }
-                    }
-                    
-                    // Assign labels to points
-                    for (size_t idx = 0; idx < point_ids.size(); ++idx) {
-                        if (is_core_points[idx]) {
-                            assignCoreLabel(point_ids[idx]);
-                        } else {
-                            assignNonCoreLabel(point_ids[idx], adjacency_list);
-                        }
-                    }
+// Phase 3: Combine clustering graphs
+if (taskid != MASTER) {
+    // Workers send their local graphs to the master node
+    MPI_Send(&adjacency_list_size, 1, MPI_UNSIGNED_LONG, MASTER, 1, MPI_COMM_WORLD);
+    MPI_Send(&adjacency_list[0], adjacency_list_size, MPI_UNSIGNED_LONG, MASTER, 2, MPI_COMM_WORLD);
+    MPI_Send(&point_ids[0], point_count, MPI_UNSIGNED_LONG, MASTER, 3, MPI_COMM_WORLD);
+    MPI_Send(&is_core_points[0], point_count, MPI_SHORT, MASTER, 4, MPI_COMM_WORLD);
+} else {
+    // Master node gathers graphs from workers and performs merging
+    for (int worker_id = 1; worker_id < numTasks; ++worker_id) {
+        size_t received_adj_list_size;
+        MPI_Recv(&received_adj_list_size, 1, MPI_UNSIGNED_LONG, worker_id, 1, MPI_COMM_WORLD, &status);
+        
+        std::vector received_adj_list(received_adj_list_size);
+        MPI_Recv(&received_adj_list[0], received_adj_list_size, MPI_UNSIGNED_LONG, worker_id, 2, MPI_COMM_WORLD, &status);
+        
+        std::vector received_point_ids(point_count);
+        MPI_Recv(&received_point_ids[0], point_count, MPI_UNSIGNED_LONG, worker_id, 3, MPI_COMM_WORLD, &status);
+        
+        std::vector received_is_core_points(point_count);
+        MPI_Recv(&received_is_core_points[0], point_count, MPI_SHORT, worker_id, 4, MPI_COMM_WORLD, &status);
+
+        // Combine the received graph with the master's graph
+        mergeGraphs(partition_data, adjacency_list,
+                    received_partition, received_adj_list);
+
+        adjacency_list = merged_adjacency_list;
+    }
+}
+
+// Assign labels to points
+for (size_t idx = 0; idx < point_ids.size(); ++idx) {
+    if (is_core_points[idx]) {
+        assignCoreLabel(point_ids[idx]);
+    } else {
+        assignNonCoreLabel(point_ids[idx], adjacency_list);
+    }
+}
                     
     </pre>
             </div>
